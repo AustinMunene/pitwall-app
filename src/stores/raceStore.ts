@@ -1,6 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { getLaps, getStints, getPitStops, getDrivers, getPositions, getSessions } from '@/api/openf1'
+import {
+  getDriverLaps,
+  getSessionDrivers,
+  getSessionPits,
+  getSessionPositions,
+  getSessionStints,
+} from '@/api/telemetry'
 import { getRaceResults } from '@/api/ergast'
 import type { Lap, Stint, PitStop, RaceDriver, Position, Session } from '@/api/openf1'
 import type { ErgastRaceResult } from '@/api/ergast'
@@ -41,14 +48,41 @@ export const useRaceStore = defineStore('race', () => {
 
       if (currentSession.value) {
         const sk = currentSession.value.session_key
-        const [stintsData, pitsData, driversData] = await Promise.all([
-          getStints(sk) as Promise<Stint[]>,
-          getPitStops(sk) as Promise<PitStop[]>,
-          getDrivers(sk) as Promise<RaceDriver[]>,
+
+        // Try Supabase-first telemetry; fall back to OpenF1 if nothing is stored yet
+        const [
+          stintsFromSupabase,
+          pitsFromSupabase,
+          driversFromSupabase,
+          positionsFromSupabase,
+        ] = await Promise.all([
+          getSessionStints(sk),
+          getSessionPits(sk),
+          getSessionDrivers(sk),
+          getSessionPositions(sk),
         ])
-        stints.value = stintsData || []
-        pits.value = pitsData || []
-        drivers.value = driversData || []
+
+        const hasSupabaseTelemetry =
+          stintsFromSupabase.length > 0 ||
+          pitsFromSupabase.length > 0 ||
+          driversFromSupabase.length > 0 ||
+          positionsFromSupabase.length > 0
+
+        if (hasSupabaseTelemetry) {
+          stints.value = stintsFromSupabase
+          pits.value = pitsFromSupabase
+          drivers.value = driversFromSupabase
+          positions.value = positionsFromSupabase
+        } else {
+          const [stintsData, pitsData, driversData] = await Promise.all([
+            getStints(sk) as Promise<Stint[]>,
+            getPitStops(sk) as Promise<PitStop[]>,
+            getDrivers(sk) as Promise<RaceDriver[]>,
+          ])
+          stints.value = stintsData || []
+          pits.value = pitsData || []
+          drivers.value = driversData || []
+        }
       }
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to load race data'
@@ -61,6 +95,14 @@ export const useRaceStore = defineStore('race', () => {
   async function loadLapsForDriver(sessionKey: number, driverNumber: number) {
     if (laps.value[driverNumber]) return
     try {
+      // Try Supabase-stored laps first
+      const supabaseLaps = await getDriverLaps(sessionKey, driverNumber)
+      if (supabaseLaps.length > 0) {
+        laps.value = { ...laps.value, [driverNumber]: supabaseLaps }
+        return
+      }
+
+      // Fallback to direct OpenF1 if Supabase has not been populated yet
       const data = await getLaps(sessionKey, driverNumber) as Lap[]
       laps.value = { ...laps.value, [driverNumber]: data || [] }
     } catch (e) {
@@ -70,6 +112,12 @@ export const useRaceStore = defineStore('race', () => {
 
   async function loadPositions(sessionKey: number) {
     try {
+      const supabasePositions = await getSessionPositions(sessionKey)
+      if (supabasePositions.length > 0) {
+        positions.value = supabasePositions
+        return
+      }
+
       const data = await getPositions(sessionKey) as Position[]
       positions.value = data || []
     } catch (e) {

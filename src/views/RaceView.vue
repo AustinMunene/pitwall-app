@@ -76,6 +76,17 @@
               </div>
             </div>
 
+            <!-- Weekend Summary (from Supabase, if available) -->
+            <div
+              v-if="raceSummary && raceSummary.race_summaries && raceSummary.race_summaries.summary_markdown"
+              class="glass-card mt-section summary-card"
+            >
+              <div class="card-title-label">Weekend Story</div>
+              <div class="summary-body">
+                {{ raceSummary.race_summaries.summary_markdown }}
+              </div>
+            </div>
+
             <!-- Result Table -->
             <div class="glass-card mt-section">
               <div class="card-header-pad">
@@ -208,6 +219,7 @@ import SkeletonBlock from '@/components/ui/SkeletonBlock.vue'
 import LapTimeChart from '@/components/charts/LapTimeChart.vue'
 import StrategyTimeline from '@/components/charts/StrategyTimeline.vue'
 import PaceBar from '@/components/charts/PaceBar.vue'
+import { getRaceSummary, type RaceWithSummary } from '@/api/summaries'
 
 const props = defineProps<{
   season: number
@@ -221,6 +233,7 @@ const { results, laps, stints, pits, drivers, loading, error, insights } = raceD
 
 const activeTab = ref('overview')
 const loadingLaps = ref(false)
+const raceSummary = ref<RaceWithSummary | null>(null)
 
 const tabs = [
   { id: 'overview', label: 'Overview' },
@@ -273,7 +286,10 @@ const chartDriverData = computed(() =>
 async function loadAllLaps() {
   loadingLaps.value = true
   const session = raceData.currentSession.value
-  if (!session) return
+  if (!session) {
+    loadingLaps.value = false
+    return
+  }
 
   const nums = results.value.slice(0, 10).map(r => parseInt(r.Driver.permanentNumber))
   await Promise.allSettled(
@@ -357,6 +373,9 @@ onMounted(async () => {
     seasonStore.loadCurrentSeason()
   }
   await raceData.load()
+
+   // Load any stored weekend summary from Supabase (if it exists)
+   raceSummary.value = await getRaceSummary(props.season, props.round)
 })
 </script>
 
@@ -463,6 +482,17 @@ onMounted(async () => {
 
 .mt-section {
   margin-top: 1rem;
+}
+
+.summary-card {
+  padding: 1.5rem;
+}
+
+.summary-body {
+  font-size: 0.9rem;
+  color: #ccc;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 .card-header-pad {

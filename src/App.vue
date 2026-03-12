@@ -48,7 +48,7 @@
     <footer class="footer">
       <div class="footer-inner">
         <span class="footer-logo"><span class="logo-accent">PIT</span>WALL</span>
-        <span class="footer-desc">F1 Fan Analytics — Data from OpenF1 & Ergast API</span>
+        <span class="footer-desc">F1 Fan Analytics - Data from OpenF1 & Ergast API</span>
         <span class="footer-disclaimer">Not affiliated with Formula 1, FOM, or FIA.</span>
       </div>
     </footer>

@@ -13,7 +13,7 @@
             <span class="hero-accent">like never before</span>
           </h1>
           <p class="hero-subtitle">
-            Race data, lap times, and strategic insights — made for fans, not just analysts.
+            Race data, lap times, and strategic insights - made for fans, not just analysts.
           </p>
           <div class="hero-actions">
             <router-link to="/drivers" class="btn-primary">Explore Standings</router-link>
