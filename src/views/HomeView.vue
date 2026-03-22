@@ -21,18 +21,40 @@
           </div>
         </div>
 
-        <!-- Next Race Countdown -->
+        <!-- Next Sessions Countdown (Box Box-style) -->
         <div class="countdown-card glass-card" v-if="seasonStore.nextRace">
           <div class="countdown-header">
-            <span class="next-label">NEXT RACE</span>
+            <span class="next-label">{{ activeSession ? 'NEXT SESSION' : 'NEXT RACE' }}</span>
             <span class="flag">{{ getCircuitFlag(seasonStore.nextRace.Circuit.Location.country) }}</span>
           </div>
           <h2 class="next-race-name">{{ seasonStore.nextRace.raceName }}</h2>
           <p class="next-circuit">
             {{ seasonStore.nextRace.Circuit.circuitName }}, {{ seasonStore.nextRace.Circuit.Location.locality }}
           </p>
-          <CountdownTimer v-if="nextRaceDateTime" :targetDate="nextRaceDateTime" />
-          <p class="next-date">{{ formatDate(seasonStore.nextRace.date) }}</p>
+
+          <CountdownTimer v-if="nextSessionDateTime" :targetDate="nextSessionDateTime" />
+
+          <div v-if="weekendSessions.length" class="session-list">
+            <div
+              v-for="session in weekendSessionsSorted"
+              :key="session.session_key"
+              class="session-row"
+              :class="sessionStatus(session)"
+            >
+              <div class="session-day font-data">
+                {{ formatSessionDay(session.date_start) }}
+              </div>
+              <div class="session-name">
+                {{ session.session_name }}
+              </div>
+              <div class="session-time font-data">
+                {{ formatSessionTime(session.date_start) }}
+                <span v-if="isToday(session.date_start)" class="session-today">today</span>
+              </div>
+            </div>
+          </div>
+
+          <p class="next-date" v-else>{{ formatDate(seasonStore.nextRace.date) }}</p>
         </div>
         <div class="countdown-card glass-card skeleton-card" v-else-if="seasonStore.loading">
           <SkeletonBlock height="120px" />
@@ -206,21 +228,40 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useSeasonStore } from '@/stores/seasonStore'
 import { getTeamColor, getCircuitFlag } from '@/constants/teams'
 import CountdownTimer from '@/components/ui/CountdownTimer.vue'
 import SkeletonBlock from '@/components/ui/SkeletonBlock.vue'
+import { getUpcomingWeekendSessions } from '@/api/telemetry'
+import type { Session } from '@/api/openf1'
 
 const seasonStore = useSeasonStore()
+const weekendSessions = ref<Session[]>([])
 
-onMounted(() => {
+onMounted(async () => {
   seasonStore.loadCurrentSeason()
+  weekendSessions.value = await getUpcomingWeekendSessions()
 })
 
 const lastRace = computed(() => seasonStore.lastRaceResults)
 
-const nextRaceDateTime = computed(() => {
+const weekendSessionsSorted = computed(() =>
+  [...weekendSessions.value].sort(
+    (a, b) => new Date(a.date_start).getTime() - new Date(b.date_start).getTime()
+  )
+)
+
+const activeSession = computed<Session | null>(() => {
+  const list = weekendSessionsSorted.value
+  if (!list.length) return null
+  const now = Date.now()
+  const upcoming = list.find(s => new Date(s.date_start).getTime() >= now)
+  return upcoming ?? list[list.length - 1]
+})
+
+const nextSessionDateTime = computed(() => {
+  if (activeSession.value) return activeSession.value.date_start
   const nr = seasonStore.nextRace
   if (!nr) return null
   return nr.time ? `${nr.date}T${nr.time}` : `${nr.date}T12:00:00Z`
@@ -256,6 +297,41 @@ function formatDate(dateStr: string): string {
 
 function isPast(dateStr: string): boolean {
   return new Date(dateStr) < new Date()
+}
+
+function formatSessionDay(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    weekday: 'short',
+    day: 'numeric',
+  })
+}
+
+function formatSessionTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function isToday(dateStr: string): boolean {
+  const d = new Date(dateStr)
+  const now = new Date()
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  )
+}
+
+function sessionStatus(session: Session): 'past' | 'next' | 'upcoming' {
+  const now = Date.now()
+  const start = new Date(session.date_start).getTime()
+  const end = new Date(session.date_end).getTime()
+  const active = activeSession.value
+
+  if (end < now) return 'past'
+  if (active && session.session_key === active.session_key) return 'next'
+  return 'upcoming'
 }
 </script>
 
@@ -418,6 +494,60 @@ function isPast(dateStr: string): boolean {
   color: #555;
   margin-top: 0.75rem;
   font-family: 'DM Mono', monospace;
+}
+
+.session-list {
+  margin-top: 1rem;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.session-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.session-row.past {
+  opacity: 0.4;
+}
+
+.session-row.next {
+  color: #fff;
+}
+
+.session-row.next .session-name {
+  font-weight: 700;
+}
+
+.session-day {
+  width: 60px;
+  color: #555;
+}
+
+.session-name {
+  flex: 1;
+  margin: 0 0.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-time {
+  text-align: right;
+}
+
+.session-today {
+  margin-left: 0.35rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #E8002D;
 }
 
 /* Sections */

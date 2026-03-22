@@ -4,7 +4,17 @@ const BASE = 'https://api.openf1.org/v1'
 
 async function get<T>(url: string): Promise<T> {
   const res = await fetch(url)
-  if (!res.ok) throw new Error(`OpenF1 API error: ${res.status} ${url}`)
+
+  if (!res.ok) {
+    const error = new Error(`OpenF1 API error: ${res.status} ${url}`) as Error & {
+      status?: number
+      url?: string
+    }
+    error.status = res.status
+    error.url = url
+    throw error
+  }
+
   return res.json()
 }
 
@@ -108,3 +118,71 @@ export interface Session {
   year: number
   meeting_key: number
 }
+
+/**
+ * Fetches car telemetry data for a specific driver in a session.
+ *
+ * Returns time-series data sampled ~3.7 times per second. Each entry includes:
+ * - `date`: ISO timestamp for the sample
+ * - `driver_number`: integer driver number
+ * - `rpm`: engine rpm at sample
+ * - `speed`: speed in km/h
+ * - `n_gear`: gearbox gear (number or null)
+ * - `throttle`: 0-100 throttle percentage
+ * - `brake`: boolean whether brake pedal is applied
+ * - `drs`: numeric DRS state (0,8,10,12,14) where higher values indicate DRS open
+ *
+ * Useful for: speed trap comparisons, throttle/brake analysis, DRS usage.
+ * Endpoint: GET /car_data?session_key=...&driver_number=...
+ */
+export const getCarData = (sessionKey: number, driverNumber: number) =>
+  cached(`car_data_${sessionKey}_${driverNumber}`, () =>
+    get(`${BASE}/car_data?session_key=${sessionKey}&driver_number=${driverNumber}`)
+  )
+
+/**
+ * Fetches the gap data between cars throughout the race.
+ *
+ * Each entry includes:
+ * - `date`: ISO timestamp for the sample
+ * - `driver_number`: integer driver number
+ * - `gap_to_leader`: string like "+5.234" or "1 LAP"
+ * - `interval_to_position_ahead`: numeric seconds to the car directly ahead
+ *
+ * Useful for: gap evolution charts, undercut/overcut windows, battle detection.
+ * Endpoint: GET /intervals?session_key=...
+ */
+export const getIntervals = (sessionKey: number) =>
+  cached(`intervals_${sessionKey}`, () =>
+    get(`${BASE}/intervals?session_key=${sessionKey}`)
+  )
+
+/**
+ * Fetches weather data sampled throughout the session.
+ *
+ * Each entry includes: `date`, `air_temperature`, `track_temperature`,
+ * `humidity`, `pressure`, `wind_speed`, `wind_direction`, `rainfall` (boolean).
+ * Useful for correlating lap time changes with track temperature evolution
+ * and explaining tyre behaviour shifts mid-race.
+ * Endpoint: GET /weather?session_key=...
+ */
+export const getWeather = (sessionKey: number) =>
+  cached(`weather_${sessionKey}`, () =>
+    get(`${BASE}/weather?session_key=${sessionKey}`)
+  )
+
+/**
+ * Fetches race control messages throughout the session.
+ *
+ * Each entry includes: `date`, `lap_number`, `category`, `message`, `flag`, `scope`, `sector`.
+ * - `category` examples: Flag, SafetyCar, Drs, Other
+ * - `flag` examples: GREEN, YELLOW, DOUBLE YELLOW, RED, CHEQUERED, CLEAR
+ * Useful for marking SC/VSC periods on charts, DRS enabled laps,
+ * and explaining sudden lap time spikes.
+ * Endpoint: GET /race_control?session_key=...
+ */
+export const getRaceControl = (sessionKey: number) =>
+  cached(`race_control_${sessionKey}`, () =>
+    get(`${BASE}/race_control?session_key=${sessionKey}`)
+  )
+

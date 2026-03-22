@@ -23,6 +23,19 @@ export function useRaceData(season: number, round: number) {
     computed(() => store.pits)
   )
 
+  // Pass additional telemetry into useInsights when available so new
+  // telemetry-driven insights can be produced (speed trap, SC impact, weather).
+  const { insights: insightsExtended } = useInsights(
+    computed(() => store.results),
+    computed(() => store.laps),
+    computed(() => store.stints),
+    computed(() => store.pits),
+    computed(() => store.carData),
+    computed(() => store.raceControl),
+    computed(() => store.weather),
+    computed(() => store.intervals)
+  )
+
   // Watch for session changes to load positions
   watch(() => store.currentSession, async (session) => {
     if (session) {
@@ -35,13 +48,30 @@ export function useRaceData(season: number, round: number) {
     laps: computed(() => store.laps),
     stints: computed(() => store.stints),
     pits: computed(() => store.pits),
+    carData: computed(() => store.carData),
+    intervals: computed(() => store.intervals),
+    weather: computed(() => store.weather),
+    raceControl: computed(() => store.raceControl),
     drivers: computed(() => store.drivers),
     positions: computed(() => store.positions),
     currentSession: computed(() => store.currentSession),
     loading: computed(() => store.loading),
     error: computed(() => store.error),
     insights,
+    insightsExtended,
     load,
+    loadCarData: (driverNumber: number) => {
+      if (store.currentSession) return store.loadCarData(store.currentSession.session_key, driverNumber)
+    },
+    loadIntervals: () => {
+      if (store.currentSession) return store.loadIntervals(store.currentSession.session_key)
+    },
+    loadWeather: () => {
+      if (store.currentSession) return store.loadWeather(store.currentSession.session_key)
+    },
+    loadRaceControl: () => {
+      if (store.currentSession) return store.loadRaceControl(store.currentSession.session_key)
+    },
     loadLapsForDriver: (driverNumber: number) => {
       if (store.currentSession) {
         return store.loadLapsForDriver(store.currentSession.session_key, driverNumber)

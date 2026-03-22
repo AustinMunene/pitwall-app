@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { getLaps, getStints, getPitStops, getDrivers, getPositions, getSessions } from '@/api/openf1'
+import { getLaps, getStints, getPitStops, getDrivers, getPositions, getSessions, getCarData, getIntervals, getWeather, getRaceControl } from '@/api/openf1'
 import {
   getDriverLaps,
   getSessionDrivers,
@@ -21,6 +21,22 @@ export const useRaceStore = defineStore('race', () => {
   const positions = ref<Position[]>([])
   const sessions = ref<Session[]>([])
   const currentSession = ref<Session | null>(null)
+  
+  // Raw telemetry per driver — keyed by driver_number.
+  // Populated on demand when a driver is selected for deep analysis.
+  const carData = ref<Record<number, any[]>>({})
+
+  // Gap to leader sampled throughout the race for all drivers.
+  // Used to render the gap evolution chart on the Lap Times tab.
+  const intervals = ref<any[]>([])
+
+  // Weather samples taken throughout the session.
+  // Used to overlay track temperature on the lap time chart.
+  const weather = ref<any[]>([])
+
+  // Race control messages — flags, safety car periods, DRS zones.
+  // Used to mark special periods on all time-series charts.
+  const raceControl = ref<any[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -85,8 +101,15 @@ export const useRaceStore = defineStore('race', () => {
         }
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Failed to load race data'
-      console.error('loadRace error:', e)
+      const err = e as Error & { status?: number }
+      if (err.status === 429) {
+        error.value = 'Telemetry temporarily unavailable (OpenF1 rate limit). Please try again later.'
+        // eslint-disable-next-line no-console
+        console.warn('OpenF1 rate limit hit while loading race telemetry', err)
+      } else {
+        error.value = e instanceof Error ? e.message : 'Failed to load race data'
+        console.error('loadRace error:', e)
+      }
     } finally {
       loading.value = false
     }
@@ -110,6 +133,62 @@ export const useRaceStore = defineStore('race', () => {
     }
   }
 
+  /**
+   * Loads car telemetry for a specific driver.
+   * Called lazily — only when user clicks into a driver's detail view.
+   * We key by driver_number so we don't re-fetch if already loaded.
+   */
+  async function loadCarData(sessionKey: number, driverNumber: number) {
+    if (carData.value[driverNumber]) return // already cached in store
+    try {
+      carData.value[driverNumber] = await getCarData(sessionKey, driverNumber)
+    } catch (e) {
+      console.error(`loadCarData error for #${driverNumber}:`, e)
+      carData.value[driverNumber] = []
+    }
+  }
+
+  /**
+   * Loads gap-to-leader data for all drivers.
+   * Called as part of the main race load alongside laps and positions.
+   * We sample this down to one entry per lap per driver for chart performance.
+   */
+  async function loadIntervals(sessionKey: number) {
+    try {
+      intervals.value = await getIntervals(sessionKey)
+    } catch (e) {
+      console.error('loadIntervals error:', e)
+      intervals.value = []
+    }
+  }
+
+  /**
+   * Loads weather data for the session.
+   * We only need one call per race — weather applies to all drivers equally.
+   */
+  async function loadWeather(sessionKey: number) {
+    try {
+      weather.value = await getWeather(sessionKey)
+    } catch (e) {
+      console.error('loadWeather error:', e)
+      weather.value = []
+    }
+  }
+
+  /**
+   * Loads race control messages.
+   * We parse these into structured periods (SC laps, VSC laps, DRS enabled laps)
+   * so charts can shade those ranges without the component needing raw messages.
+   */
+  async function loadRaceControl(sessionKey: number) {
+    try {
+      raceControl.value = await getRaceControl(sessionKey)
+    } catch (e) {
+      console.error('loadRaceControl error:', e)
+      raceControl.value = []
+    }
+  }
+
   async function loadPositions(sessionKey: number) {
     try {
       const supabasePositions = await getSessionPositions(sessionKey)
@@ -121,6 +200,12 @@ export const useRaceStore = defineStore('race', () => {
       const data = await getPositions(sessionKey) as Position[]
       positions.value = data || []
     } catch (e) {
+      const err = e as Error & { status?: number }
+      if (err.status === 429) {
+        // eslint-disable-next-line no-console
+        console.warn('OpenF1 rate limit hit while loading positions', err)
+        return
+      }
       console.error('loadPositions error:', e)
     }
   }
@@ -143,12 +228,20 @@ export const useRaceStore = defineStore('race', () => {
     pits,
     drivers,
     positions,
+    carData,
+    intervals,
+    weather,
+    raceControl,
     sessions,
     currentSession,
     loading,
     error,
     loadRace,
     loadLapsForDriver,
+    loadCarData,
+    loadIntervals,
+    loadWeather,
+    loadRaceControl,
     loadPositions,
     reset
   }
