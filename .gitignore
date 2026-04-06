@@ -27,3 +27,22 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+# AI assistant files
+claude.md
+cursor.md
+
+# Environment template
+.env.example
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Bun
+bun.lockb
