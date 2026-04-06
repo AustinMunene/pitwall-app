@@ -88,7 +88,7 @@ export interface RaceStats {
  */
 export async function generateRaceStory(raceStats: RaceStats): Promise<{ headline: string; body: string }[]> {
   // Check sessionStorage cache first - keyed by race name + season
-  const cacheKey = `pitwall_story_${raceStats.season}_${raceStats.raceName}`
+  const cacheKey = `boxlap_story_${raceStats.season}_${raceStats.raceName}`
   const cachedStr = sessionStorage.getItem(cacheKey)
   if (cachedStr) {
     return JSON.parse(cachedStr)

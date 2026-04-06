@@ -1,7 +1,7 @@
 /**
  * _gemini.ts
  *
- * Shared Gemini client for all PitWall serverless functions.
+ * Shared Gemini client for all BoxLap serverless functions.
  * Lazily instantiates the client on first use so importing this module never
  * throws when `GEMINI_API_KEY` is not yet present in `process.env` (e.g. dev
  * middleware load order).

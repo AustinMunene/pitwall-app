@@ -1,4 +1,4 @@
-# Pitwall
+# BoxLap
 
 Interactive Formula 1 racing analytics dashboard. Explore race results, qualifying times, driver telemetry, team strategies, and predictions.
 

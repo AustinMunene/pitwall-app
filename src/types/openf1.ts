@@ -1,7 +1,7 @@
 /**
  * src/types/openf1.ts
  *
- * Centralized OpenF1 API response types for PitWall.
+ * Centralized OpenF1 API response types for BoxLap.
  *
  * Why this file exists:
  * - Phase 3 introduces multiple new telemetry + breakdown charts.
@@ -9,7 +9,7 @@
  * - We avoid leaking `any` into the rest of the codebase.
  *
  * Note:
- * - These interfaces model the fields PitWall uses today.
+ * - These interfaces model the fields BoxLap uses today.
  * - OpenF1 can return additional fields; we intentionally keep this lean.
  */
 

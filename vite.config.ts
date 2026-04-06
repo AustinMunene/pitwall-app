@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => {
      * Production builds on Vercel ignore this and run the real serverless functions.
      */
     {
-      name: 'pitwall-vercel-api-dev',
+      name: 'boxlap-vercel-api-dev',
       configureServer(server) {
         server.middlewares.use(async (req, res, next) => {
           try {
@@ -86,7 +86,7 @@ export default defineConfig(({ mode }) => {
             await handler(vercelReq, vercelRes)
           } catch (e) {
             // Dev-only: log the real error so we can debug endpoint wiring.
-            console.error('[pitwall-vercel-api-dev] middleware error', e)
+            console.error('[boxlap-vercel-api-dev] middleware error', e)
             res.statusCode = 500
             res.setHeader('Content-Type', 'application/json')
             res.end(JSON.stringify({ error: 'Dev API middleware error' }))

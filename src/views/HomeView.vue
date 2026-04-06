@@ -10,7 +10,7 @@
             <span class="hero-title--accent">like never before</span>
           </h1>
           <p class="hero-subtitle">
-            Race data, lap times, and strategic insights —<br />made for fans, not just analysts.
+            Race data, lap times, and strategic insights<br />made for fans, not just analysts.
           </p>
 
           <div class="leader-chip" v-if="championshipLeader">

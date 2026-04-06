@@ -44,7 +44,7 @@ let explainerTimer: ReturnType<typeof setTimeout> | null = null
 const cacheKey = computed(() => {
   if (!props.payload) return ''
   const p = props.payload
-  return `pitwall_telemetry_explainer_${p.season}_${p.round}_${p.driverA.code}_${p.driverB.code}_${p.lap}_${p.raceName}`
+  return `boxlap_telemetry_explainer_${p.season}_${p.round}_${p.driverA.code}_${p.driverB.code}_${p.lap}_${p.raceName}`
 })
 
 /**
