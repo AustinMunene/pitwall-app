@@ -6,32 +6,19 @@
           <span class="logo-accent">BOX</span>LAP
         </router-link>
 
-        <div class="nav-links navbar-links" :class="{ 'navbar-links--open': menuOpen }">
+        <div class="nav-links navbar-links desktop-only">
           <router-link
             v-for="link in navLinks"
             :key="link.path"
             :to="link.path"
             class="nav-link navbar-link"
             :class="{ 'nav-link-active': isNavActive(link), 'navbar-link--active': isNavActive(link) }"
-            @click="menuOpen = false"
           >
             {{ link.label }}
           </router-link>
-          <div class="season-selector season-selector--in-menu">
-            <button
-              v-for="year in seasonStore.availableSeasons"
-              :key="year"
-              type="button"
-              class="season-pill"
-              :class="{ 'season-pill--active': seasonStore.selectedSeason === year }"
-              @click="selectSeasonMobile(year)"
-            >
-              {{ year }}
-            </button>
-          </div>
         </div>
 
-        <div class="season-selector season-selector--desktop">
+        <div class="season-selector season-selector--desktop desktop-only">
           <button
             v-for="year in seasonStore.availableSeasons"
             :key="year"
@@ -46,9 +33,9 @@
 
         <button
           type="button"
-          class="hamburger"
+          class="hamburger mobile-only"
           :class="{ 'hamburger--open': menuOpen }"
-          aria-label="Menu"
+          aria-label="Toggle menu"
           :aria-expanded="menuOpen"
           @click="menuOpen = !menuOpen"
         >
@@ -57,6 +44,43 @@
           <span class="hamburger-line" />
         </button>
       </div>
+
+      <Transition name="dropdown">
+        <div v-if="menuOpen" class="mobile-menu-backdrop" @click="menuOpen = false">
+          <div class="mobile-menu-panel" @click.stop>
+            <router-link
+              v-for="link in navLinks"
+              :key="`mobile-${link.path}`"
+              :to="link.path"
+              class="mobile-menu-link"
+              :class="{ 'mobile-menu-link--active': isNavActive(link) }"
+              @click="menuOpen = false"
+            >
+              <span class="mobile-menu-icon">{{ link.icon }}</span>
+              <span>{{ link.label }}</span>
+              <span class="mobile-menu-arrow">›</span>
+            </router-link>
+
+            <div class="mobile-menu-divider" />
+
+            <div class="mobile-menu-seasons">
+              <span class="mobile-menu-seasons-label">Season</span>
+              <div class="mobile-menu-season-pills">
+                <button
+                  v-for="year in seasonStore.availableSeasons"
+                  :key="`mobile-season-${year}`"
+                  type="button"
+                  class="mobile-season-pill"
+                  :class="{ 'mobile-season-pill--active': seasonStore.selectedSeason === year }"
+                  @click="selectSeasonMobile(year)"
+                >
+                  {{ year }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
     </nav>
 
     <main class="main-content page-content">
@@ -99,10 +123,6 @@ watch(
   }
 )
 
-watch(menuOpen, open => {
-  document.body.style.overflow = open ? 'hidden' : ''
-})
-
 /**
  * When the user selects a different season, we navigate to the home page rather than
  * staying on the current page. Race rounds, telemetry sessions, and profile context
@@ -118,10 +138,10 @@ async function onSeasonSelect(year: number) {
 }
 
 const navLinks = computed(() => [
-  { path: '/', label: 'Home' },
-  { path: '/drivers', label: 'Drivers' },
-  { path: '/teams', label: 'Teams' },
-  { path: `/telemetry/${seasonStore.selectedSeason}/1`, label: 'Telemetry', telemetry: true as const },
+  { path: '/', label: 'Home', icon: '🏠' },
+  { path: '/drivers', label: 'Drivers', icon: '🧑‍✈️' },
+  { path: '/teams', label: 'Teams', icon: '🔧' },
+  { path: `/telemetry/${seasonStore.selectedSeason}/1`, label: 'Telemetry', icon: '📡', telemetry: true as const },
 ])
 
 function isNavActive(link: { path: string; telemetry?: boolean }) {
@@ -283,6 +303,175 @@ onMounted(() => {
     order: 3;
     width: 100%;
     justify-content: center;
+  }
+}
+
+.desktop-only {
+  display: flex;
+}
+
+.mobile-only {
+  display: none;
+}
+
+.mobile-menu-backdrop {
+  position: fixed;
+  inset: 56px 0 0 0;
+  z-index: 99;
+  background: transparent;
+}
+
+.mobile-menu-panel {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  width: 240px;
+  background: rgba(14, 14, 14, 0.98);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 8px;
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.1),
+    0 16px 40px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  transform-origin: top right;
+}
+
+.mobile-menu-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #777;
+  text-decoration: none;
+  transition: all 0.15s;
+  font-family: 'Titillium Web', sans-serif;
+}
+
+.mobile-menu-link:hover,
+.mobile-menu-link:active {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.mobile-menu-link--active {
+  background: rgba(232, 0, 45, 0.1);
+  color: #e8002d;
+}
+
+.mobile-menu-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.mobile-menu-arrow {
+  margin-left: auto;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.15);
+  font-weight: 300;
+}
+
+.mobile-menu-link--active .mobile-menu-arrow {
+  color: rgba(232, 0, 45, 0.3);
+}
+
+.mobile-menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 6px 8px;
+}
+
+.mobile-menu-seasons {
+  padding: 8px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-menu-seasons-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.mobile-menu-season-pills {
+  display: flex;
+  gap: 6px;
+}
+
+.mobile-season-pill {
+  flex: 1;
+  padding: 7px 6px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #666;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'Titillium Web', sans-serif;
+  text-align: center;
+  min-height: unset;
+  height: 34px;
+}
+
+.mobile-season-pill:active {
+  transform: scale(0.94);
+}
+
+.mobile-season-pill--active {
+  background: #e8002d;
+  border-color: #e8002d;
+  color: #fff;
+}
+
+.dropdown-enter-active {
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.dropdown-leave-active {
+  transition:
+    opacity 0.1s ease,
+    transform 0.1s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+}
+
+.dropdown-enter-from .mobile-menu-panel {
+  transform: scale(0.94) translateY(-8px);
+}
+
+.dropdown-leave-to .mobile-menu-panel {
+  transform: scale(0.97) translateY(-4px);
+}
+
+.dropdown-enter-active .mobile-menu-panel,
+.dropdown-leave-active .mobile-menu-panel {
+  transition: transform 0.16s ease;
+}
+
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: flex !important;
   }
 }
 </style>

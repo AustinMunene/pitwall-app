@@ -34,6 +34,7 @@ const isLoadingLaps = ref(false)
 const isLoadingTelemetry = ref(false)
 const telemetryError = ref<string | null>(null)
 const loadProgress = ref(0)
+const generateState = ref<'idle' | 'loading' | 'done' | 'error'>('idle')
 
 /**
  * Tracks race confirm UX: idle → load → ready (tap again) → confirmed (step 2).
@@ -291,6 +292,12 @@ watch(selectedRound, () => {
   }
 })
 
+watch([() => driverA.value, () => driverB.value, () => selectedLap.value], () => {
+  if (generateState.value === 'done') {
+    generateState.value = 'idle'
+  }
+})
+
 function onLapSelectedFromChart(lapNumber: number) {
   selectedLap.value = lapNumber
   nextTick(() => {
@@ -338,6 +345,7 @@ async function onDriversConfirmed() {
  */
 async function onLapConfirmed() {
   if (!selectedLap.value || !driverA.value || !driverB.value) return
+  if (generateState.value === 'loading') return
 
   const sk = store.currentSession?.session_key
   if (!sk) return
@@ -350,6 +358,7 @@ async function onLapConfirmed() {
     return
   }
 
+  generateState.value = 'loading'
   isLoadingTelemetry.value = true
   telemetryError.value = null
   lapConfirmed.value = false
@@ -362,7 +371,18 @@ async function onLapConfirmed() {
     await store.loadTelemetryForLap(sk, driverB.value, selectedLap.value)
     loadProgress.value = 100
     lapConfirmed.value = true
+    generateState.value = 'done'
+
+    /**
+     * Auto-scroll to charts after a short delay so users can see the success
+     * state before focus moves down to the analysis cards.
+     */
+    await nextTick()
+    setTimeout(() => {
+      document.querySelector('.charts-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 600)
   } catch (e) {
+    generateState.value = 'error'
     telemetryError.value = 'Could not load telemetry. Try a different lap.'
     console.error('[TelemetryView] telemetry load failed:', e)
   } finally {
@@ -456,7 +476,7 @@ function onLapChange() {
           </template>
           <template v-else-if="confirmState === 'ready'">
             <span class="btn-ready-dot" />
-            Ready — tap to continue
+            Ready - tap to continue
           </template>
           <template v-else>✓ Race loaded</template>
         </button>
@@ -541,14 +561,41 @@ function onLapChange() {
             </button>
           </div>
 
-          <button
-            type="button"
-            class="btn-primary mt-4 generate-telemetry-btn"
-            :disabled="!selectedLap || isLoadingTelemetry"
-            @click="onLapConfirmed"
-          >
-            {{ isLoadingTelemetry ? 'Loading telemetry…' : 'Generate telemetry' }}
-          </button>
+          <div class="generate-btn-wrap">
+            <button
+              type="button"
+              class="btn-generate generate-telemetry-btn"
+              :class="`btn-generate--${generateState}`"
+              :disabled="generateState === 'loading'"
+              @click="onLapConfirmed"
+            >
+              <template v-if="generateState === 'idle'"> Generate telemetry </template>
+
+              <template v-else-if="generateState === 'loading'">
+                <StartLightsLoader :compact="true" />
+                <span>Loading lap {{ selectedLap }}...</span>
+              </template>
+
+              <template v-else-if="generateState === 'done'">
+                <span class="generate-done-icon">✓</span>
+                Lap {{ selectedLap }} ready - scroll down to analyse
+              </template>
+
+              <template v-else-if="generateState === 'error'"> ⚠ Failed - tap to retry </template>
+            </button>
+
+            <div v-if="generateState === 'loading'" class="generate-progress">
+              <div class="generate-progress-fill" :style="{ width: `${loadProgress}%` }" />
+            </div>
+
+            <Transition name="fade">
+              <p v-if="generateState === 'done'" class="generate-success-hint">
+                {{ driverAInfo?.code }} vs {{ driverBInfo?.code }}
+                · Lap {{ selectedLap }}
+                · {{ store.currentSession?.circuit_short_name ?? '' }}
+              </p>
+            </Transition>
+          </div>
         </div>
       </Transition>
       </div>
@@ -900,6 +947,113 @@ function onLapChange() {
   cursor: not-allowed;
 }
 
+.generate-btn-wrap {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn-generate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 28px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: 'Titillium Web', sans-serif;
+  border: none;
+  min-width: 220px;
+  min-height: 52px;
+}
+
+.btn-generate--idle {
+  background: #e8002d;
+  color: #fff;
+}
+
+.btn-generate--idle:hover {
+  background: #ff1a3d;
+  box-shadow: 0 0 24px rgba(232, 0, 45, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-generate--loading {
+  background: rgba(232, 0, 45, 0.1);
+  border: 1px solid rgba(232, 0, 45, 0.2);
+  color: #e8002d;
+  cursor: wait;
+}
+
+.btn-generate--done {
+  background: rgba(0, 200, 83, 0.12);
+  border: 1px solid rgba(0, 200, 83, 0.35);
+  color: #00c853;
+  cursor: default;
+  pointer-events: none;
+  animation: done-glow 0.5s ease forwards;
+}
+
+@keyframes done-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 200, 83, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(0, 200, 83, 0.15);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 200, 83, 0);
+  }
+}
+
+.btn-generate--error {
+  background: rgba(255, 180, 0, 0.1);
+  border: 1px solid rgba(255, 180, 0, 0.25);
+  color: #ffb400;
+  cursor: pointer;
+}
+
+.generate-done-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #00c853;
+  color: #000;
+  font-size: 12px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.generate-progress {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.generate-progress-fill {
+  height: 100%;
+  background: #e8002d;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+  box-shadow: 0 0 8px rgba(232, 0, 45, 0.5);
+}
+
+.generate-success-hint {
+  font-size: 12px;
+  color: #00c853;
+  font-family: 'DM Mono', monospace;
+  opacity: 0.8;
+  text-align: center;
+}
+
 .mt-4 {
   margin-top: 1rem;
 }
@@ -1066,6 +1220,10 @@ function onLapChange() {
   transition: opacity 0.3s;
 }
 
+.fade-enter-active {
+  transition: opacity 0.4s ease 0.3s;
+}
+
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
@@ -1119,6 +1277,13 @@ function onLapChange() {
 
   .telemetry-loading {
     padding: 40px 16px;
+  }
+
+  .btn-generate {
+    width: 100%;
+    font-size: 14px;
+    padding: 14px 20px;
+    min-width: unset;
   }
 }
 
