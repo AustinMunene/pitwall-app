@@ -56,7 +56,6 @@
               :class="{ 'mobile-menu-link--active': isNavActive(link) }"
               @click="menuOpen = false"
             >
-              <span class="mobile-menu-icon">{{ link.icon }}</span>
               <span>{{ link.label }}</span>
               <span class="mobile-menu-arrow">›</span>
             </router-link>
@@ -364,13 +363,6 @@ onMounted(() => {
   color: #e8002d;
 }
 
-.mobile-menu-icon {
-  font-size: 16px;
-  width: 20px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
 .mobile-menu-arrow {
   margin-left: auto;
   font-size: 16px;
@@ -465,6 +457,46 @@ onMounted(() => {
   transition: transform 0.16s ease;
 }
 
+.hamburger {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  min-height: unset;
+  padding: 0;
+}
+
+.hamburger-line {
+  width: 18px;
+  height: 1.5px;
+  background: #fff;
+  border-radius: 2px;
+  transition: all 0.22s ease;
+  display: block;
+  transform-origin: center;
+}
+
+.hamburger--open .hamburger-line:nth-child(1) {
+  transform: translateY(6.5px) rotate(45deg);
+}
+
+.hamburger--open .hamburger-line:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0);
+}
+
+.hamburger--open .hamburger-line:nth-child(3) {
+  transform: translateY(-6.5px) rotate(-45deg);
+}
+
 @media (max-width: 768px) {
   .desktop-only {
     display: none !important;
@@ -472,6 +504,12 @@ onMounted(() => {
 
   .mobile-only {
     display: flex !important;
+  }
+
+  .navbar-inner {
+    padding: 0 16px;
+    justify-content: space-between;
+    gap: 0;
   }
 }
 </style>
